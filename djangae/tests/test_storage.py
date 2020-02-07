@@ -33,7 +33,7 @@ class ModelWithUploadTo(models.Model):
     class Meta:
         app_label = "djangae"
 
-    text_file = models.FileField(upload_to="documents/")
+    text_file = models.FileField(upload_to="nested/document/")
 
 
 @skipIf(not has_cloudstorage, "Cloud Storage not available")
@@ -142,5 +142,5 @@ class CloudStorageTests(TestCase):
         )
 
         instance.save()
-        fetched = ModelWithTextFile.objects.get()
+        fetched = ModelWithUploadTo.objects.get()
         self.assertEqual(fetched.text_file.read(), content)
