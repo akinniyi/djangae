@@ -1,4 +1,3 @@
-from enum import Enum
 import os
 from io import BytesIO, UnsupportedOperation
 
