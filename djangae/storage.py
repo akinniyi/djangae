@@ -123,7 +123,7 @@ class CloudStorage(Storage):
             blob = self.bucket.blob(name)
             return blob.public_url
         else:
-            return "http://localhost:10911/test-bucket/{}".format(name)
+            return "{}/test-bucket/{}".format(os.environ["STORAGE_EMULATOR_HOST"], name)
 
 
 def has_cloudstorage():

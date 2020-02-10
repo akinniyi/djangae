@@ -96,7 +96,7 @@ def start_emulators(persist_data, emulators=None, storage_dir=None):
     if "storage" in emulators:
         os.environ["STORAGE_EMULATOR_HOST"] = "http://127.0.0.1:%s" % STORAGE_PORT
         _ACTIVE_EMULATORS["tasks"] = _launch_process(
-            "gcloud-storage-emulator start -q --port=%s" % STORAGE_PORT
+            "gcloud-storage-emulator start -q --port=%s --no-store-on-disk" % STORAGE_PORT
         )
         _wait_for_storage(STORAGE_PORT)
 

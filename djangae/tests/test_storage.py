@@ -39,8 +39,7 @@ class ModelWithUploadTo(models.Model):
 @skipIf(not has_cloudstorage, "Cloud Storage not available")
 class CloudStorageTests(TestCase):
     def setUp(self):
-        # TODO: this should be more generic
-        requests.get('http://localhost:10911/wipe')
+        requests.get('{}/wipe'.format(os.environ["STORAGE_EMULATOR_HOST"]))
         return super().setUp()
 
     @override_settings(CLOUD_STORAGE_BUCKET='test_bucket')
@@ -92,8 +91,6 @@ class CloudStorageTests(TestCase):
         filename = 'example.txt'
         fileobj = ContentFile(b'content')
 
-        # TODO: clean this up somehow?
-        os.environ["STORAGE_EMULATOR_HOST"] = "http://localhost:10911"
         with sleuth.watch('google.cloud.storage.blob.Blob.upload_from_file') as upload_func:
             storage.save(filename, fileobj)
 
@@ -106,8 +103,6 @@ class CloudStorageTests(TestCase):
         filename = 'example.txt'
         fileobj = ContentFile(b'content', name=filename)
 
-        # TODO: clean this up somehow?
-        os.environ["STORAGE_EMULATOR_HOST"] = "http://localhost:10911"
         with sleuth.watch('google.cloud.storage.blob.Blob.upload_from_file') as upload_func:
             storage.save(filename, fileobj)
 
