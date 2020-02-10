@@ -1,35 +1,45 @@
 import os
-from io import BytesIO, UnsupportedOperation
+from io import (
+    BytesIO,
+    UnsupportedOperation,
+)
 
 import requests
-from django.core.files.storage import File, Storage
+from django.core.files.storage import (
+    File,
+    Storage,
+)
 from google.api_core.exceptions import Conflict
 from google.cloud.exceptions import NotFound
 
 
-# TODO: make this configurable
-def _get_storage_client(http=None):
-    """Gets a python storage client"""
-    os.environ["STORAGE_EMULATOR_HOST"] = "http://localhost:9023"
+def _get_storage_client():
+    """Gets an instance of a google CloudStorage Client
 
-    if not http:
+        Note: google storage python library depends on env variables read at
+        module import time, which requires nested imports
+    """
+
+    is_app_engine = os.environ.get("GAE_ENV") == "standard"
+    http = None
+
+    if not is_app_engine:
         http = requests.Session()
+
     from google.cloud import storage
     return storage.Client(
-        project="[PROJECT]",
         _http=http,
-        client_options={"api_endpoint": "http://localhost:9023"},
     )
 
 
 class CloudStorageFile(File):
-    def __init__(self, bucket, name=None, mode='rb'):
+    def __init__(self, bucket, name=None, mode="rb"):
         self._name = name
         self._mode = mode
         self._blob = bucket.blob(name)
 
     def read(self, num_bytes=None):
-        if 'r' not in self._mode:
+        if "r" not in self._mode:
             raise UnsupportedOperation("File open in '{}' is not readable".format(self._mode))
         if num_bytes:
             raise NotImplementedError("Specified argument 'num_bytes: {}' not supported".format(num_bytes))
@@ -39,7 +49,7 @@ class CloudStorageFile(File):
         return f.getvalue()
 
     def write(self, content):
-        raise NotImplementedError('Write of CloudStorageFile object not currently supported.')
+        raise NotImplementedError("Write of CloudStorageFile object not currently supported.")
 
 
 class CloudStorage(Storage):
@@ -105,11 +115,15 @@ class CloudStorage(Storage):
         return self._bucket.delete_blob(name)
 
     def url(self, name):
-        return get_public_url(name)
+        return self.get_public_url(name)
 
-
-def get_public_url(name):
-    return "http://localhost:9023/test-bucket/{}".format(name)
+    def get_public_url(self, name):
+        is_app_engine = os.environ.get("GAE_ENV") == "standard"
+        if is_app_engine:
+            blob = self.bucket.blob(name)
+            return blob.public_url
+        else:
+            return "http://localhost:10911/test-bucket/{}".format(name)
 
 
 def has_cloudstorage():

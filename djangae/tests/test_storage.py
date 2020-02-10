@@ -40,7 +40,7 @@ class ModelWithUploadTo(models.Model):
 class CloudStorageTests(TestCase):
     def setUp(self):
         # TODO: this should be more generic
-        requests.get('http://localhost:9023/wipe')
+        requests.get('http://localhost:10911/wipe')
         return super().setUp()
 
     @override_settings(CLOUD_STORAGE_BUCKET='test_bucket')
@@ -93,7 +93,7 @@ class CloudStorageTests(TestCase):
         fileobj = ContentFile(b'content')
 
         # TODO: clean this up somehow?
-        os.environ["STORAGE_EMULATOR_HOST"] = "http://localhost:9023"
+        os.environ["STORAGE_EMULATOR_HOST"] = "http://localhost:10911"
         with sleuth.watch('google.cloud.storage.blob.Blob.upload_from_file') as upload_func:
             storage.save(filename, fileobj)
 
@@ -107,7 +107,7 @@ class CloudStorageTests(TestCase):
         fileobj = ContentFile(b'content', name=filename)
 
         # TODO: clean this up somehow?
-        os.environ["STORAGE_EMULATOR_HOST"] = "http://localhost:9023"
+        os.environ["STORAGE_EMULATOR_HOST"] = "http://localhost:10911"
         with sleuth.watch('google.cloud.storage.blob.Blob.upload_from_file') as upload_func:
             storage.save(filename, fileobj)
 
