@@ -17,7 +17,7 @@ from django.utils import six
 from djangae.contrib import sleuth
 from djangae.storage import (
     CloudStorage,
-    has_cloudstorage,
+    _get_storage_client,
 )
 from djangae.test import TestCase
 
@@ -36,11 +36,19 @@ class ModelWithUploadTo(models.Model):
     text_file = models.FileField(upload_to="nested/document/")
 
 
-@skipIf(not has_cloudstorage, "Cloud Storage not available")
 class CloudStorageTests(TestCase):
     def setUp(self):
         requests.get('{}/wipe'.format(os.environ["STORAGE_EMULATOR_HOST"]))
+        client = _get_storage_client()
+        client.create_bucket('test_bucket')
         return super().setUp()
+
+    def test_no_config_raises(self):
+        from django.core.exceptions import ImproperlyConfigured
+
+        with sleuth.fake("djangae.storage.project_id", return_value=None):
+            with self.assertRaises(ImproperlyConfigured):
+                CloudStorage()
 
     @override_settings(CLOUD_STORAGE_BUCKET='test_bucket')
     def test_basic_actions(self):
@@ -78,6 +86,30 @@ class CloudStorageTests(TestCase):
         f = ContentFile(b'content')
         filename = storage.save(name, f)
         self.assertEqual(filename, name.lstrip("./"))
+
+    @override_settings(CLOUD_STORAGE_BUCKET='test_bucket')
+    def test_different_bucket(self):
+        from google.cloud.exceptions import NotFound
+        storage = CloudStorage(bucket_name='different_test_bucket')
+        name = './my_file'
+        f = ContentFile(b'content')
+
+        with self.assertRaises(NotFound) as cm:
+            storage.save(name, f)
+
+        self.assertIn('different_test_bucket', cm.exception.message)
+
+    @override_settings(CLOUD_STORAGE_BUCKET='different_test_bucket')
+    def test_different_bucket_config(self):
+        from google.cloud.exceptions import NotFound
+        storage = CloudStorage()
+        name = './my_file'
+        f = ContentFile(b'content')
+
+        with self.assertRaises(NotFound) as cm:
+            storage.save(name, f)
+
+        self.assertIn('different_test_bucket', cm.exception.message)
 
     @override_settings(CLOUD_STORAGE_BUCKET='test_bucket')
     def test_supports_nameless_files(self):

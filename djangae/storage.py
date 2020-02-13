@@ -1,3 +1,4 @@
+import logging
 import os
 from io import (
     BytesIO,
@@ -5,12 +6,18 @@ from io import (
 )
 
 import requests
+from django.conf import settings
 from django.core.files.storage import (
     File,
     Storage,
 )
-from google.api_core.exceptions import Conflict
 from google.cloud.exceptions import NotFound
+
+from djangae.environment import project_id
+
+BUCKET_KEY = "CLOUD_STORAGE_BUCKET"
+
+logger = logging.getLogger(__name__)
 
 
 def _get_storage_client():
@@ -32,6 +39,28 @@ def _get_storage_client():
     )
 
 
+def _get_default_bucket_name():
+    default_bucket = None
+    p_id = project_id()
+    if p_id:
+        default_bucket = "{}.appspot.com".format(p_id)
+
+    return default_bucket
+
+
+def get_bucket_name():
+    bucket_name = getattr(settings, BUCKET_KEY, None)
+    if not bucket_name:
+        bucket_name = _get_default_bucket_name()
+
+    if not bucket_name:
+        from django.core.exceptions import ImproperlyConfigured
+        message = "{} not set or no default bucket configured".format(BUCKET_KEY)
+        raise ImproperlyConfigured(message)
+
+    return bucket_name
+
+
 class CloudStorageFile(File):
     def __init__(self, bucket, name=None, mode="rb"):
         self._name = name
@@ -40,7 +69,7 @@ class CloudStorageFile(File):
 
     def read(self, num_bytes=None):
         if "r" not in self._mode:
-            raise UnsupportedOperation("File open in '{}' is not readable".format(self._mode))
+            raise UnsupportedOperation("File open in '{}' mode is not readable".format(self._mode))
         if num_bytes:
             raise NotImplementedError("Specified argument 'num_bytes: {}' not supported".format(num_bytes))
 
@@ -62,8 +91,8 @@ class CloudStorage(Storage):
         attribute to one of mentioned by docs (XML column):
         https://cloud.google.com/storage/docs/access-control/lists?hl=en#predefined-acl
     """
-    def __init__(self, bucket_name="test-bucket", google_acl=None):
-        self._bucket_name = bucket_name
+    def __init__(self, bucket_name=None, google_acl=None):
+        self._bucket_name = bucket_name if bucket_name else get_bucket_name()
         self._client = None
         self._bucket = None
         self._google_acl = google_acl
@@ -78,9 +107,11 @@ class CloudStorage(Storage):
     def bucket(self):
         if not self._bucket:
             try:
-                self._bucket = self.client.create_bucket(self._bucket_name)
-            except Conflict:
                 self._bucket = self.client.get_bucket(self._bucket_name)
+            except NotFound as e:
+                logger.info("Bucket '{}' does not exist".format(self._bucket_name))
+                raise e
+
         return self._bucket
 
     def get_valid_name(self, name):
@@ -123,8 +154,4 @@ class CloudStorage(Storage):
             blob = self.bucket.blob(name)
             return blob.public_url
         else:
-            return "{}/test-bucket/{}".format(os.environ["STORAGE_EMULATOR_HOST"], name)
-
-
-def has_cloudstorage():
-    return True
+            return "{}/{}/{}".format(os.environ["STORAGE_EMULATOR_HOST"], self._bucket_name, name)
