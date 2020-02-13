@@ -1,7 +1,6 @@
 # coding: utf-8
 # STANDARD LIB
 import os
-from unittest import skipIf
 
 # THIRD PARTY
 import requests
